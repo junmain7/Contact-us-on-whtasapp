@@ -1,17 +1,17 @@
-import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { adminDb } from "../lib/firebaseAdmin";
+import RedirectClient from "./RedirectClient";
 
 // Force this route to always run fresh on the server — never statically
-// cached by Next.js or Vercel's CDN, so the redirect always happens
-// server-side with zero flash, every single request.
+// cached by Next.js or Vercel's CDN, so the number is always current.
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// Server Component — no "use client", no useEffect.
-// Redirect happens on the server before any HTML is sent, so there's
-// no page flash. Uses firebaseAdmin (bypasses Firestore rules), so the
-// public "allow read: if true" rule on config/whatsapp is no longer needed.
+// Server Component — fetches the WhatsApp number from Firestore using
+// firebaseAdmin (bypasses Firestore rules, so no public read rule needed).
+// The actual redirect is delegated to a tiny client component because
+// next/navigation's redirect() cannot handle intent:// URLs without
+// throwing a server-side exception.
 export default async function Home() {
   let number;
   try {
@@ -27,16 +27,16 @@ export default async function Home() {
     );
   }
 
-  const ua = headers().get("user-agent") || "";
+  const headersList = await headers();
+  const ua = headersList.get("user-agent") || "";
   const isAndroid = /android/i.test(ua);
   const waUrl = `https://wa.me/${number}`;
 
-  if (isAndroid) {
-    const intentUrl = `intent://send?phone=${number}#Intent;scheme=whatsapp;package=com.whatsapp;S.browser_fallback_url=${encodeURIComponent(
-      waUrl
-    )};end`;
-    redirect(intentUrl);
-  } else {
-    redirect(waUrl);
-  }
+  const targetUrl = isAndroid
+    ? `intent://send?phone=${number}#Intent;scheme=whatsapp;package=com.whatsapp;S.browser_fallback_url=${encodeURIComponent(
+        waUrl
+      )};end`
+    : waUrl;
+
+  return <RedirectClient url={targetUrl} />;
 }
