@@ -1,17 +1,18 @@
 import { headers } from "next/headers";
 import { adminDb } from "../lib/firebaseAdmin";
-import RedirectClient from "./RedirectClient";
 
 // Force this route to always run fresh on the server — never statically
-// cached by Next.js or Vercel's CDN, so the number is always current.
+// cached, so the number is always current.
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
-// Server Component — fetches the WhatsApp number from Firestore using
-// firebaseAdmin (bypasses Firestore rules, so no public read rule needed).
-// The actual redirect is delegated to a tiny client component because
-// next/navigation's redirect() cannot handle intent:// URLs without
-// throwing a server-side exception.
+// Server Component. We fetch the number here (bypassing Firestore rules
+// via firebaseAdmin), then render a plain inline <script> that fires
+// window.location.replace() the instant the browser parses it — before
+// React even hydrates. This avoids both:
+//  1. next/navigation's redirect() crashing on intent:// URLs
+//  2. the "Redirecting..." flash caused by waiting for a client
+//     component's useEffect to run after hydration
 export default async function Home() {
   let number;
   try {
@@ -38,5 +39,21 @@ export default async function Home() {
       )};end`
     : waUrl;
 
-  return <RedirectClient url={targetUrl} />;
+  // Note: root layout.js already provides the <html>/<body> wrapper, so we
+  // only return the fragment that goes inside it. Placing the <script>
+  // first means it executes as soon as the browser parses it — before the
+  // noscript fallback below is even painted.
+  return (
+    <>
+      <script
+        dangerouslySetInnerHTML={{
+          __html: `window.location.replace(${JSON.stringify(targetUrl)});`,
+        }}
+      />
+      <noscript>
+        JavaScript is disabled. Tap here to continue:{" "}
+        <a href={waUrl}>Open WhatsApp</a>
+      </noscript>
+    </>
+  );
 }
