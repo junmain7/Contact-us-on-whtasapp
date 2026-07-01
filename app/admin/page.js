@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { doc, onSnapshot, setDoc } from "firebase/firestore";
+import { doc, onSnapshot } from "firebase/firestore";
 import { db } from "../../lib/firebase";
 
 export default function AdminPage() {
@@ -45,9 +45,18 @@ export default function AdminPage() {
     }
     setStatus("saving");
     try {
-      await setDoc(doc(db, "config", "whatsapp"), { number: cleaned }, { merge: true });
-      setStatus("saved");
-      setTimeout(() => setStatus(""), 2000);
+      const res = await fetch("/api/set-whatsapp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ password: pwInput, number: cleaned }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setStatus("saved");
+        setTimeout(() => setStatus(""), 2000);
+      } else {
+        setStatus("error");
+      }
     } catch (err) {
       console.error(err);
       setStatus("error");
