@@ -2,6 +2,12 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { adminDb } from "../lib/firebaseAdmin";
 
+// Force this route to always run fresh on the server — never statically
+// cached by Next.js or Vercel's CDN, so the redirect always happens
+// server-side with zero flash, every single request.
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 // Server Component — no "use client", no useEffect.
 // Redirect happens on the server before any HTML is sent, so there's
 // no page flash. Uses firebaseAdmin (bypasses Firestore rules), so the
