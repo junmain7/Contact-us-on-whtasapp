@@ -12,7 +12,18 @@ export default function Home() {
         const snap = await getDoc(doc(db, "config", "whatsapp"));
         if (!snap.exists()) throw new Error("no config");
         const { number } = snap.data();
-        window.location.href = `https://wa.me/${number}`;
+
+        const isAndroid = /android/i.test(navigator.userAgent);
+        if (isAndroid) {
+          // Android: intent scheme seedha WhatsApp app open karta hai,
+          // interstitial page skip ho jaata hai
+          window.location.href = `intent://send?phone=${number}#Intent;scheme=whatsapp;package=com.whatsapp;S.browser_fallback_url=${encodeURIComponent(
+            `https://wa.me/${number}`
+          )};end`;
+        } else {
+          // iOS / Desktop: wa.me / whatsapp:// scheme
+          window.location.href = `https://wa.me/${number}`;
+        }
       } catch (e) {
         setError(true);
       }
